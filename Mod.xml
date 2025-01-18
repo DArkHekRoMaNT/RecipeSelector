@@ -1,0 +1,16 @@
+<Project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.w3.org/2001/XMLSchema https://raw.githubusercontent.com/DArkHekRoMaNT/VSMods/master/Mod.xsd">
+	<PropertyGroup>
+		<Name>RecipeSelector</Name>
+		<ModId>recipeselector</ModId>
+		<Version>1.0.0</Version>
+		<Authors>DArkHekRoMaNT</Authors>
+		<GameVersion>1.19.8</GameVersion>
+		<Description>Allows you to choose a specific recipe if they conflict</Description>
+		<Website></Website>
+		<NoLang>true</NoLang>
+	</PropertyGroup>
+	<ItemGroup>
+		<IncludeFiles Include="LICENSE" />
+		<IncludeFiles Include="README.md" />
+	</ItemGroup>
+</Project>
