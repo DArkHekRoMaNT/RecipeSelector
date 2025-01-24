@@ -1,4 +1,4 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection.Emit;
@@ -12,6 +12,8 @@ namespace RecipeSelector
     [HarmonyPatch("FindMatchingRecipe")]
     public static class Patch_InventoryCraftingGrid_FindMatchingRecipe
     {
+        private static RecipeSelector? _recipeSelector;
+
         public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions, ILGenerator generator)
         {
             var foundMatchMethod = AccessTools.Method(typeof(InventoryCraftingGrid), "FoundMatch");
@@ -52,6 +54,10 @@ namespace RecipeSelector
             yield return CodeInstruction.LoadArgument(0); // this
             yield return CodeInstruction.LoadLocal(lastMatchingRecipeIndex);
             yield return CodeInstruction.LoadLocal(recipeListIndex);
+            yield return CodeInstruction.LoadArgument(0); // this
+            yield return CodeInstruction.LoadField(typeof(InventoryCraftingGrid), nameof(InventoryCraftingGrid.Api));
+            yield return CodeInstruction.LoadArgument(0); // this
+            yield return CodeInstruction.Call(typeof(InventoryCraftingGrid), "get_Player");
             yield return CodeInstruction.Call(typeof(Patch_InventoryCraftingGrid_FindMatchingRecipe), nameof(Inject));
             yield return new CodeInstruction(OpCodes.Call, foundMatchMethod);
 
@@ -61,21 +67,43 @@ namespace RecipeSelector
             yield return codes[^1];
         }
 
-        private static GridRecipe Inject(GridRecipe currentMatchingRecipe, List<GridRecipe> recipes)
+        private static GridRecipe Inject(GridRecipe currentMatchingRecipe, List<GridRecipe> recipes, ICoreAPI api, IPlayer player)
         {
-            if (currentMatchingRecipe == null || recipes.Count == 1 || !recipes.Contains(currentMatchingRecipe))
+            if (recipes.Count == 1)
             {
                 return recipes[0];
             }
 
-            for (int i = 0; i < recipes.Count; i++)
+            _recipeSelector ??= api.ModLoader.GetModSystem<RecipeSelector>();
+
+            bool HasRecipe(GridRecipe recipe)
             {
-                if (recipes[i] == currentMatchingRecipe)
+                return recipes.Any(x => x.Output.ResolvedItemstack.Equals(api.World, recipe.Output.ResolvedItemstack));
+            }
+
+            if (_recipeSelector.ConsumeNextPressed(player) && currentMatchingRecipe != null && HasRecipe(currentMatchingRecipe))
+            {
+                for (int i = 0; i < recipes.Count; i++)
                 {
-                    return recipes[i + 1 < recipes.Count ? i + 1 : 0];
+                    if (recipes[i] == currentMatchingRecipe)
+                    {
+                        var nextRecipe = recipes[i + 1 < recipes.Count ? i + 1 : 0];
+                        _recipeSelector.OnRecipeSelected(player, nextRecipe);
+                        return nextRecipe;
+                    }
                 }
             }
 
+            if (_recipeSelector.TryGetLastCraftedRecipe(player, out var lastCraftedRecipe) && HasRecipe(lastCraftedRecipe))
+            {
+                return lastCraftedRecipe;
+            }
+
+            if (currentMatchingRecipe != null && HasRecipe(currentMatchingRecipe))
+            {
+                return currentMatchingRecipe;
+            }
+            
             return recipes[0];
         }
     }

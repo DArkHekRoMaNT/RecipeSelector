@@ -1,4 +1,4 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection.Emit;
@@ -14,6 +14,8 @@ namespace RecipeSelector
     [HarmonyPatch("ComposeSurvivalInvDialog")]
     public static class Patch_GuiDialogInventory_ComposeSurvivalInvDialog
     {
+        private static RecipeSelector? _recipeSelector;
+
         public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
         {
             var composeMethod = AccessTools.Method(typeof(GuiComposer), nameof(GuiComposer.Compose));
@@ -38,7 +40,12 @@ namespace RecipeSelector
         {
             bool OnClick()
             {
-                (inv as InventoryCraftingGrid)?.Api.ModLoader.GetModSystem<RecipeSelector>().Next();
+                if (inv is InventoryCraftingGrid craftingInv)
+                {
+                    _recipeSelector ??= craftingInv.Api.ModLoader.GetModSystem<RecipeSelector>();
+                    var player = (craftingInv.Api as ICoreClientAPI)!.World.Player;
+                    _recipeSelector.OnNextClicked(player);
+                }
                 return true;
             }
 
